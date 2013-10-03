@@ -13,6 +13,20 @@ endif()
 
 set(synclib_NAME ${APPLICATION_EXECUTABLE}sync)
 
+if ( APPLE )
+    list(APPEND OS_SPECIFIC_LINK_LIBRARIES
+         /System/Library/Frameworks/CoreServices.framework
+         /System/Library/Frameworks/Foundation.framework
+         /System/Library/Frameworks/AppKit.framework
+    )
+endif()
+
+
+if( ENABLE_SPARKLE AND SPARKLE )
+    set( HAVE_SPARKLE ON )
+    list (APPEND OS_SPECIFIC_LINK_LIBRARIES ${SPARKLE})
+endif( ENABLE_SPARKLE AND SPARKLE )
+
 set(3rdparty_SRC
 3rdparty/qtsingleapplication/qtsingleapplication.cpp
 3rdparty/qtsingleapplication/qtlocalpeer.cpp
@@ -114,19 +128,16 @@ set(libsync_HEADERS
 )
 
 IF( INOTIFY_FOUND )
-    set(libsync_SRCS ${libsync_SRCS} mirall/inotify.cpp)
-    set(libsync_SRCS ${libsync_SRCS} mirall/folderwatcher_inotify.cpp)
-    set(libsync_HEADERS ${libsync_HEADERS} mirall/inotify.h)
-    set(libsync_HEADERS ${libsync_HEADERS} mirall/folderwatcher_inotify.h)
+    list(APPEND libsync_SRCS mirall/inotify.cpp mirall/folderwatcher_inotify.cpp)
+    list(APPEND libsync_HEADERS mirall/inotify.h mirall/folderwatcher_inotify.h)
 ENDIF()
 IF( WIN32 )
     set(libsync_SRCS ${libsync_SRCS} mirall/folderwatcher_win.cpp)
     set(libsync_HEADERS ${libsync_HEADERS} mirall/folderwatcher_win.h)
 ENDIF()
 IF( APPLE )
-    set(libsync_SRCS ${libsync_SRCS} mirall/folderwatcher_mac.cpp)
+    list(APPEND libsync_SRCS mirall/folderwatcher_mac.cpp)
 ENDIF()
-
 
 qt_wrap_cpp(syncMoc ${libsync_HEADERS})
 
@@ -137,11 +148,17 @@ ELSE()
 FIND_LIBRARY(HTTPBF_LIBRARY NAMES httpbf HINTS $ENV{CSYNC_DIR})
 ENDIF()
 
+IF( DEFINED CSYNC_BUILD_PATH )
+SET(HTTPBF_LIBRARY ${CSYNC_BUILD_PATH}/src/httpbf/libhttpbf.a)
+ELSE()
+FIND_LIBRARY(HTTPBF_LIBRARY NAMES httpbflib HINTS $ENV{CSYNC_DIR})
+ENDIF()
 
 list(APPEND libsync_LINK_TARGETS
     ${QT_LIBRARIES}
     ${CSYNC_LIBRARY}
     ${HTTPBF_LIBRARY}
+    ${OS_SPECIFIC_LINK_LIBRARIES}
 )
 
 IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
@@ -170,10 +187,6 @@ set_target_properties( ${synclib_NAME}  PROPERTIES
 )
 
 target_link_libraries(${synclib_NAME} ${libsync_LINK_TARGETS} )
-
-if ( APPLE )
-    target_link_libraries(${synclib_NAME} /System/Library/Frameworks/CoreServices.framework)
-endif()
 
 if(NOT BUILD_OWNCLOUD_OSX_BUNDLE)
     install(TARGETS ${synclib_NAME}
@@ -233,6 +246,7 @@ set(mirall_SRCS
     mirall/ignorelisteditor.cpp
     mirall/owncloudgui.cpp
     mirall/socketapi.cpp
+    mirall/updater.cpp
 )
 
 set(mirall_HEADERS
@@ -259,6 +273,7 @@ set(mirall_HEADERS
     mirall/protocolwidget.h
     mirall/owncloudgui.h
     mirall/socketapi.h
+    mirall/updater.h
 )
 
 if( UNIX AND NOT APPLE)
@@ -266,6 +281,16 @@ if( UNIX AND NOT APPLE)
         set(USE_INOTIFY ON)
     endif()
 endif()
+
+
+IF( APPLE )
+    list(APPEND mirall_SRCS
+        mirall/cocoainitializer_mac.mm
+        mirall/sparkleupdater_mac.mm)
+    list(APPEND mirall_HEADERS
+        mirall/cocoainitializer.h
+        mirall/sparkleupdater.h)
+ENDIF()
 
 # csync is required.
 include_directories(${CSYNC_INCLUDE_DIR}/csync ${CSYNC_INCLUDE_DIR} ${CSYNC_INCLUDE_DIR}/httpbf/src ${CSYNC_BUILD_PATH}/src)
@@ -330,6 +355,9 @@ else()
     set(BIN_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
     include(DeployQt4)
 
+    option(ENABLE_SPARKLE "Sparkle updating" ON)
+    find_library(SPARKLE Sparkle)
+
     set(CMAKE_INSTALL_PREFIX ".") # Examples use /Applications. hurmpf.
     set(MACOSX_BUNDLE_ICON_FILE "ownCloud.icns")
 
@@ -352,6 +380,7 @@ set_target_properties( ${APPLICATION_EXECUTABLE} PROPERTIES
 target_link_libraries( ${APPLICATION_EXECUTABLE} ${QT_LIBRARIES} )
 target_link_libraries( ${APPLICATION_EXECUTABLE} ${synclib_NAME} )
 target_link_libraries( ${APPLICATION_EXECUTABLE} ${CSYNC_LIBRARY} )
+target_link_libraries( ${APPLICATION_EXECUTABLE} ${OS_SPECIFIC_LINK_LIBRARIES} )
 
 install(TARGETS ${APPLICATION_EXECUTABLE}
         RUNTIME DESTINATION bin

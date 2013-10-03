@@ -16,6 +16,7 @@
 #include "mirall/application.h"
 #include "mirall/theme.h"
 #include "mirall/utility.h"
+#include "mirall/cocoainitializer.h"
 
 #include <QMessageBox>
 #include <QTimer>
@@ -34,6 +35,9 @@ int main(int argc, char **argv)
 {
     Q_INIT_RESOURCE(mirall);
 
+#ifdef Q_OS_MAC
+    Mirall::Mac::CocoaInitializer cocoaInit; // RIIA
+#endif
     Mirall::Application app(argc, argv);
     app.initialize();
 #ifndef Q_OS_WIN
