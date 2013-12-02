@@ -235,8 +235,7 @@ set(mirall_SRCS
     wizard/owncloudshibbolethcredspage.cpp
     wizard/owncloudadvancedsetuppage.cpp
     mirall/owncloudsetupwizard.cpp
-    mirall/updatedetector.cpp
-    mirall/occinfo.cpp
+    mirall/updateinfo.cpp
     mirall/sslerrordialog.cpp
     mirall/logbrowser.cpp
     mirall/settingsdialog.cpp
@@ -247,6 +246,7 @@ set(mirall_SRCS
     mirall/owncloudgui.cpp
     mirall/socketapi.cpp
     mirall/updater.cpp
+    mirall/genericupdater.cpp
 )
 
 set(mirall_HEADERS
@@ -262,7 +262,6 @@ set(mirall_HEADERS
     wizard/owncloudshibbolethcredspage.h
     wizard/owncloudadvancedsetuppage.h
     mirall/folderstatusmodel.h
-    mirall/updatedetector.h
     mirall/sslerrordialog.h
     mirall/logbrowser.h
     mirall/settingsdialog.h
@@ -274,6 +273,7 @@ set(mirall_HEADERS
     mirall/owncloudgui.h
     mirall/socketapi.h
     mirall/updater.h
+    mirall/genericupdater.h
 )
 
 if( UNIX AND NOT APPLE)

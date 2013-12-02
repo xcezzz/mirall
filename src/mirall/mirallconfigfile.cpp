@@ -57,6 +57,7 @@ static const char uploadLimitC[]      = "BWLimit/uploadLimit";
 static const char downloadLimitC[]    = "BWLimit/downloadLimit";
 
 static const char seenVersionC[] = "Updater/seenVersion";
+static const char lastVersionC[] = "Updater/lastVersion";
 static const char maxLogLinesC[] = "Logging/maxLogLines";
 
 QString MirallConfigFile::_oCVersion;
@@ -118,6 +119,19 @@ void MirallConfigFile::setSeenVersion(const QString &version)
 {
     QSettings settings(configFile(), QSettings::IniFormat);
     settings.setValue(QLatin1String(seenVersionC), version);
+    settings.sync();
+}
+
+QString MirallConfigFile::lastVersion() const
+{
+    QSettings settings(configFile(), QSettings::IniFormat);
+    return settings.value(QLatin1String(lastVersionC)).toString();
+}
+
+void MirallConfigFile::setLastVersion(const QString &version)
+{
+    QSettings settings(configFile(), QSettings::IniFormat);
+    settings.setValue(QLatin1String(lastVersionC), version);
     settings.sync();
 }
 
@@ -323,7 +337,7 @@ void MirallConfigFile::setOwnCloudVersion( const QString& ver)
 }
 
 
-bool MirallConfigFile::ownCloudSkipUpdateCheck( const QString& connection ) const
+bool MirallConfigFile::skipUpdateCheck( const QString& connection ) const
 {
     QString con( connection );
     if( connection.isEmpty() ) con = defaultConnection();
@@ -336,7 +350,7 @@ bool MirallConfigFile::ownCloudSkipUpdateCheck( const QString& connection ) cons
     return skipIt;
 }
 
-void MirallConfigFile::setOwnCloudSkipUpdateCheck( bool skip, const QString& connection )
+void MirallConfigFile::setSkipUpdateCheck( bool skip, const QString& connection )
 {
     QString con( connection );
     if( connection.isEmpty() ) con = defaultConnection();

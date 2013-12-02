@@ -38,6 +38,7 @@ private slots:
     void saveMiscSettings();
     void slotToggleLaunchOnStartup(bool);
     void slotToggleOptionalDesktopNotifications(bool);
+    void slotUpdateInfo();
 
 private:
     void loadMiscSettings();

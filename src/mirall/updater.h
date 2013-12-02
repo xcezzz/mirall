@@ -14,13 +14,19 @@
 #ifndef UPDATER_H
 #define UPDATER_H
 
+#include <QObject>
+
 namespace Mirall {
 
 class Updater {
 public:
-    static Updater *create();
+    static Updater *instance();
+
     virtual void checkForUpdates() = 0;
     virtual void backgroundCheckForUpdates() = 0;
+private:
+    static Updater *create();
+    static Updater *_instance;
 };
 
 } // namespace Mirall

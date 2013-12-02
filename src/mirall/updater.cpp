@@ -13,17 +13,28 @@
 
 #include "mirall/updater.h"
 #include "mirall/sparkleupdater.h"
-#include "mirall/updatedetector.h"
+#include "mirall/genericupdater.h"
 
 namespace Mirall {
+
+Updater *Updater::_instance = 0;
+
+Updater * Updater::instance()
+{
+    if(!_instance) {
+        _instance = create();
+    }
+
+    return _instance;
+}
 
 Updater *Updater::create()
 {
 #ifdef Q_OS_MAC
-    return new SparkleUpdater("http://daniel.molkentin.de/owncloudclient.rss");
+    return new SparkleUpdater(QLatin1String("http://daniel.molkentin.de/owncloudclient.rss"));
 #else
     // the best we can do is notify about updates
-    return new UpdateDetector();
+    return new GenericUpdater(QUrl("http://update.thinkpad"));
 #endif
 }
 

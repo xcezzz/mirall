@@ -27,7 +27,8 @@ class SparkleUpdater::Private
         SUUpdater* updater;
 };
 
-SparkleUpdater::SparkleUpdater(const QString& appCastUrl)
+SparkleUpdater::SparkleUpdater(const QString& appCastUrl, QObject *parent)
+    : Updater(parent)
 {
     d = new Private;
 

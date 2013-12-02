@@ -16,8 +16,10 @@
 #define UPDATEDETECTOR_H
 
 #include <QObject>
+#include <QUrl>
+#include <QTemporaryFile>
 
-#include "mirall/occinfo.h"
+#include "mirall/updateinfo.h"
 #include "mirall/updater.h"
 
 class QNetworkAccessManager;
@@ -25,29 +27,40 @@ class QNetworkReply;
 
 namespace Mirall {
 
-class UpdateDetector : public QObject, public Updater
+class GenericUpdater : public QObject, public Updater
 {
     Q_OBJECT
 public:
-    explicit UpdateDetector(QObject *parent = 0);
-    
+    enum State { Unknown = 0, UpToDate, DownloadingUpdate, DownloadedUpdate, DownloadFailed};
+    explicit GenericUpdater(const QUrl &url, QObject *parent = 0);
+
     void checkForUpdates();
     void backgroundCheckForUpdates();
+
+    QString statusString() const;
+    int state() const;
+    void setState(int state);
+
 signals:
-    
-public slots:
+    void stateChanged();
 
 private slots:
     void slotOpenUpdateUrl();
     void slotSetVersionSeen();
-    void slotVersionInfoArrived( QNetworkReply* );
+    void slotVersionInfoArrived();
+    void slotWriteFile();
+    void slotDownloadFinished();
 
 private:
+    QString clientVersion() const;
     QString getSystemInfo();
     void showDialog();
 
+    QUrl _updateUrl;
     QNetworkAccessManager *_accessManager;
-    Owncloudclient ocClient;
+    UpdateInfo _updateInfo;
+    QScopedPointer<QTemporaryFile> _file;
+    int _state;
 };
 
 }

@@ -12,11 +12,10 @@
  * for more details.
  */
 
-#include "mirall/updatedetector.h"
+#include "mirall/genericupdater.h"
 #include "mirall/theme.h"
 #include "mirall/version.h"
 #include "mirall/mirallconfigfile.h"
-#include "mirall/occinfo.h"
 #include "mirall/utility.h"
 #include "mirall/mirallaccessmanager.h"
 
@@ -31,24 +30,54 @@
 namespace Mirall {
 
 
-UpdateDetector::UpdateDetector(QObject *parent) :
+GenericUpdater::GenericUpdater(const QUrl &url, QObject *parent) :
     QObject(parent)
+  , _updateUrl(url)
   , _accessManager(new MirallAccessManager(this))
+  , _state(Unknown)
 {
 }
 
-void UpdateDetector::backgroundCheckForUpdates()
+void GenericUpdater::backgroundCheckForUpdates()
 {
     // FIXME
     checkForUpdates();
 }
 
-void UpdateDetector::checkForUpdates()
+QString GenericUpdater::statusString() const
+{
+    QString updateVersion = _updateInfo.version();
+
+    switch (state()) {
+    case DownloadingUpdate:
+        return tr("Downloading version %1. Please wait...").arg(updateVersion);
+    case DownloadedUpdate:
+        return tr("Version %1 available. Restart application to start the update.").arg(updateVersion);
+    case DownloadFailed:
+        return tr("Could not download update. Please click <a href='%1'>here</a> %2 to download the update manually").arg(_updateInfo.web(), updateVersion);
+    case Unknown:
+        return tr("Checking update server...");
+    case UpToDate:
+    default:
+        return tr("Your installation is at the latest version");
+    }
+}
+
+int GenericUpdater::state() const
+{
+    return _state;
+}
+
+void GenericUpdater::setState(int state)
+{
+    _state = state;
+    emit stateChanged();
+}
+
+void GenericUpdater::checkForUpdates()
 {
     Theme *theme = Theme::instance();
-    connect(_accessManager, SIGNAL(finished(QNetworkReply*)), this,
-            SLOT(slotVersionInfoArrived(QNetworkReply*)) );
-    QUrl url(QLatin1String("https://download.owncloud.com/clientupdater.php"));
+    QUrl url(_updateUrl);
     QString ver = QString::fromLatin1("%1.%2.%3").arg(MIRALL_VERSION_MAJOR).arg(MIRALL_VERSION_MINOR).arg(MIRALL_VERSION_MICRO);
 
     QString platform = QLatin1String("stranger");
@@ -71,24 +100,24 @@ void UpdateDetector::checkForUpdates()
     url.addQueryItem( QLatin1String("platform"), platform );
     url.addQueryItem( QLatin1String("oem"), theme->appName() );
 
-    QNetworkRequest req( url );
-    req.setRawHeader( QByteArray("User-Agent"), Utility::userAgentString() );
+    QNetworkReply *reply = _accessManager->get( QNetworkRequest(url) );
+    connect(reply, SIGNAL(finished()), this,
+            SLOT(slotVersionInfoArrived()) );
 
-    _accessManager->get( req );
 }
 
-void UpdateDetector::slotOpenUpdateUrl()
+void GenericUpdater::slotOpenUpdateUrl()
 {
-    QDesktopServices::openUrl(ocClient.web());
+    QDesktopServices::openUrl(_updateInfo.web());
 }
 
-void UpdateDetector::slotSetVersionSeen()
+void GenericUpdater::slotSetVersionSeen()
 {
     MirallConfigFile cfg;
-    cfg.setSeenVersion(ocClient.version());
+    cfg.setSeenVersion(_updateInfo.version());
 }
 
-QString UpdateDetector::getSystemInfo()
+QString GenericUpdater::getSystemInfo()
 {
 #ifdef Q_OS_LINUX
     QProcess process;
@@ -104,12 +133,11 @@ QString UpdateDetector::getSystemInfo()
 #endif
 }
 
-void UpdateDetector::showDialog()
+void GenericUpdater::showDialog()
 {
     // if the version tag is set, there is a newer version.
-    QString ver = QString::fromLatin1("%1.%2.%3")
-            .arg(MIRALL_VERSION_MAJOR).arg(MIRALL_VERSION_MINOR).arg(MIRALL_VERSION_MICRO);
     QDialog *msgBox = new QDialog;
+    msgBox->setAttribute(Qt::WA_DeleteOnClose);
 
     QIcon info = msgBox->style()->standardIcon(QStyle::SP_MessageBoxInformation, 0, 0);
     int iconSize = msgBox->style()->pixelMetric(QStyle::PM_MessageBoxIconSize, 0, 0);
@@ -128,7 +156,7 @@ void UpdateDetector::showDialog()
     QLabel *lbl = new QLabel;
     QString txt = tr("<p>A new version of the %1 Client is available.</p>"
                      "<p><b>%2</b> is available for download. The installed version is %3.<p>")
-            .arg(Theme::instance()->appNameGUI()).arg(ocClient.versionstring()).arg(ver);
+            .arg(Theme::instance()->appNameGUI()).arg(_updateInfo.versionString()).arg(clientVersion());
 
     lbl->setText(txt);
     lbl->setTextFormat(Qt::RichText);
@@ -139,7 +167,7 @@ void UpdateDetector::showDialog()
 
     QDialogButtonBox *bb = new QDialogButtonBox;
     bb->setWindowFlags(bb->windowFlags() & ~Qt::WindowContextHelpButtonHint);
-    QPushButton *skip = bb->addButton(tr("Skip update"), QDialogButtonBox::ResetRole);
+    QPushButton *skip = bb->addButton(tr("Skip this version"), QDialogButtonBox::ResetRole);
     QPushButton *reject = bb->addButton(tr("Skip this time"), QDialogButtonBox::AcceptRole);
     QPushButton  *getupdate = bb->addButton(tr("Get update"), QDialogButtonBox::AcceptRole);
 
@@ -153,11 +181,11 @@ void UpdateDetector::showDialog()
     layout->addWidget(bb);
 
     msgBox->open();
-    msgBox->resize(400, msgBox->sizeHint().height());
 }
 
-void UpdateDetector::slotVersionInfoArrived( QNetworkReply* reply )
+void GenericUpdater::slotVersionInfoArrived()
 {
+    QNetworkReply *reply = qobject_cast<QNetworkReply*>(sender());
     if( reply->error() != QNetworkReply::NoError ) {
         qDebug() << "Failed to reach version check url: " << reply->errorString();
         return;
@@ -166,7 +194,7 @@ void UpdateDetector::slotVersionInfoArrived( QNetworkReply* reply )
     QString xml = QString::fromUtf8(reply->readAll());
 
     bool ok;
-    ocClient = Owncloudclient::parseString( xml, &ok );
+    _updateInfo = UpdateInfo::parseString( xml, &ok );
     if( ok ) {
 
     //        Thats how it looks like if a new version is available:
@@ -185,14 +213,60 @@ void UpdateDetector::slotVersionInfoArrived( QNetworkReply* reply )
     //                  <web></web>
     //                </owncloudclient>
         MirallConfigFile cfg;
-        if( ocClient.version().isEmpty() || ocClient.version() == cfg.seenVersion() ) {
+        if( _updateInfo.version().isEmpty() || _updateInfo.version() == cfg.seenVersion() ) {
             qDebug() << "Client is on latest version!";
         } else {
-            showDialog();
+            QString url = _updateInfo.downloadUrl();
+            if (url.isEmpty()) {
+#ifdef Q_OS_WINDOWS
+                showDialog();
+#endif
+            } else {
+                QNetworkReply *reply = _accessManager->get(QNetworkRequest(QUrl(url)));
+                connect(reply, SIGNAL(readyRead()), SLOT(slotWriteFile()));
+                connect(reply, SIGNAL(finished()), SLOT(slotDownloadFinished()));
+                setState(DownloadingUpdate);
+                _file.reset(new QTemporaryFile);
+                _file->setAutoRemove(true);
+                _file->open();
+            }
         }
     } else {
         qDebug() << "Could not parse update information.";
     }
+}
+
+void GenericUpdater::slotWriteFile()
+{
+    QNetworkReply *reply = qobject_cast<QNetworkReply*>(sender());
+    if(_file->isOpen()) {
+        _file->write(reply->readAll());
+    }
+}
+
+void GenericUpdater::slotDownloadFinished()
+{
+    QNetworkReply *reply = qobject_cast<QNetworkReply*>(sender());
+    if (reply->error() != QNetworkReply::NoError) {
+        setState(DownloadFailed);
+        return;
+    }
+
+    QUrl url(reply->url());
+    _file->close();
+    MirallConfigFile cfg;
+    QString urlPath = url.path();
+    QString targetFile = cfg.configPath() + urlPath.mid(urlPath.lastIndexOf('/'));
+    QFile::copy(_file->fileName(), targetFile);
+    setState(DownloadedUpdate);
+    qDebug() << "Downloaded" << url.toString() << "to" << targetFile;
+//            QProcess::startDetached(targetFile, QStringList());
+}
+
+QString GenericUpdater::clientVersion() const
+{
+    return QString::fromLatin1("%1.%2.%3")
+            .arg(MIRALL_VERSION_MAJOR).arg(MIRALL_VERSION_MINOR).arg(MIRALL_VERSION_MICRO);
 }
 
 }

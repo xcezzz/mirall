@@ -16,13 +16,13 @@
 
 #include "mirall/updater.h"
 
-#include <QString>
+#include <QObject>
 
 namespace Mirall {
 
 class SparkleUpdater : public Updater {
 public:
-    SparkleUpdater(const QString& appCastUrl);
+    SparkleUpdater(const QString& appCastUrl, QObject *parent = 0);
     ~SparkleUpdater();
 
     void checkForUpdates();
