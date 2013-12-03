@@ -199,7 +199,7 @@ void Application::slotCleanup()
 void Application::slotStartUpdateDetector()
 {
     Updater *updater = Updater::instance();
-    updater->backgroundCheckForUpdates();
+    updater->backgroundCheckForUpdate();
 }
 
 void Application::slotCheckConnection()

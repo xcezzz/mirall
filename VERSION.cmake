@@ -4,3 +4,5 @@ set( VERSION_PATCH 0 )
 set( VERSION "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}${VERSION_SUFFIX}beta2")
 set( SOVERSION 0 )
 
+timestamp(timestamp)
+set( VERSION_TIMESTAMP ${timestamp} )

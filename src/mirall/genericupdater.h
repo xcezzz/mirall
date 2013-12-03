@@ -31,11 +31,14 @@ class GenericUpdater : public QObject, public Updater
 {
     Q_OBJECT
 public:
-    enum State { Unknown = 0, UpToDate, DownloadingUpdate, DownloadedUpdate, DownloadFailed};
+    enum DownloadState { Unknown = 0, UpToDate, DownloadingUpdate, DownloadedUpdate, DownloadFailed };
     explicit GenericUpdater(const QUrl &url, QObject *parent = 0);
 
-    void checkForUpdates();
-    void backgroundCheckForUpdates();
+    UpdateState updateState() const;
+    void performUpdate();
+
+    void checkForUpdate();
+    void backgroundCheckForUpdate();
 
     QString statusString() const;
     int state() const;
@@ -52,10 +55,12 @@ private slots:
     void slotDownloadFinished();
 
 private:
+    bool updateSucceeded() const;
     QString clientVersion() const;
     QString getSystemInfo();
     void showDialog();
 
+    QString _targetFile;
     QUrl _updateUrl;
     QNetworkAccessManager *_accessManager;
     UpdateInfo _updateInfo;

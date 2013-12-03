@@ -26,9 +26,13 @@
 #include <QtWidgets>
 #endif
 
+#include <stdio.h>
 
 namespace Mirall {
 
+static const char updateAvailableC[] = "Updater/UpdateAvailable";
+static const char lastVersionC[] = "Updater/lastVersion";
+static const char ranUpdateC[] = "Updater/ranUpdate";
 
 GenericUpdater::GenericUpdater(const QUrl &url, QObject *parent) :
     QObject(parent)
@@ -38,10 +42,48 @@ GenericUpdater::GenericUpdater(const QUrl &url, QObject *parent) :
 {
 }
 
-void GenericUpdater::backgroundCheckForUpdates()
+Updater::UpdateState GenericUpdater::updateState() const
+{
+    MirallConfigFile cfg;
+    QSettings settings(cfg.configFile(), QSettings::IniFormat);
+    QString updateFile = settings.value(updateAvailableC).toString();
+    if (!updateFile.isEmpty() && QFile(updateFile).exists()) {
+        // we have an update, did we succeed running it?
+        bool ranUpdate = settings.value(ranUpdateC, false).toBool();
+        if (ranUpdate) {
+            if (updateSucceeded()) {
+                settings.remove(ranUpdateC);
+                return NoUpdate;
+            } else {
+                return UpdateFailed;
+            }
+        } else {
+            return UpdateAvailable;
+        }
+    } else {
+        return NoUpdate;
+    }
+}
+
+void GenericUpdater::performUpdate()
+{
+    MirallConfigFile cfg;
+    QSettings settings(cfg.configFile(), QSettings::IniFormat);
+    QString updateFile = settings.value(updateAvailableC).toString();
+    if (!updateFile.isEmpty() && QFile(updateFile).exists()) {
+        if (QMessageBox::information(0, tr("New Update Ready"),
+                                     tr("A new update is about to be installed. The updater may ask\n"
+                                        "for additional privileges during the process."), QMessageBox::Ok)) {
+            settings.setValue(ranUpdateC, true);
+            QProcess::startDetached(updateFile, QStringList() << "/S");
+        }
+    }
+}
+
+void GenericUpdater::backgroundCheckForUpdate()
 {
     // FIXME
-    checkForUpdates();
+    checkForUpdate();
 }
 
 QString GenericUpdater::statusString() const
@@ -74,7 +116,7 @@ void GenericUpdater::setState(int state)
     emit stateChanged();
 }
 
-void GenericUpdater::checkForUpdates()
+void GenericUpdater::checkForUpdate()
 {
     Theme *theme = Theme::instance();
     QUrl url(_updateUrl);
@@ -222,13 +264,18 @@ void GenericUpdater::slotVersionInfoArrived()
                 showDialog();
 #endif
             } else {
-                QNetworkReply *reply = _accessManager->get(QNetworkRequest(QUrl(url)));
-                connect(reply, SIGNAL(readyRead()), SLOT(slotWriteFile()));
-                connect(reply, SIGNAL(finished()), SLOT(slotDownloadFinished()));
-                setState(DownloadingUpdate);
-                _file.reset(new QTemporaryFile);
-                _file->setAutoRemove(true);
-                _file->open();
+                _targetFile = cfg.configPath() + url.mid(url.lastIndexOf('/'));
+                if (QFile(_targetFile).exists()) {
+                    setState(DownloadedUpdate);
+                } else {
+                    QNetworkReply *reply = _accessManager->get(QNetworkRequest(QUrl(url)));
+                    connect(reply, SIGNAL(readyRead()), SLOT(slotWriteFile()));
+                    connect(reply, SIGNAL(finished()), SLOT(slotDownloadFinished()));
+                    setState(DownloadingUpdate);
+                    _file.reset(new QTemporaryFile);
+                    _file->setAutoRemove(true);
+                    _file->open();
+                }
             }
         }
     } else {
@@ -254,19 +301,37 @@ void GenericUpdater::slotDownloadFinished()
 
     QUrl url(reply->url());
     _file->close();
-    MirallConfigFile cfg;
-    QString urlPath = url.path();
-    QString targetFile = cfg.configPath() + urlPath.mid(urlPath.lastIndexOf('/'));
-    QFile::copy(_file->fileName(), targetFile);
+    QFile::copy(_file->fileName(), _targetFile);
     setState(DownloadedUpdate);
-    qDebug() << "Downloaded" << url.toString() << "to" << targetFile;
-//            QProcess::startDetached(targetFile, QStringList());
+    qDebug() << "Downloaded" << url.toString() << "to" << _targetFile;
+    MirallConfigFile cfg;
+    QSettings settings(cfg.configFile(), QSettings::IniFormat);
+
+    settings.setValue(lastVersionC, clientVersion());
+    settings.setValue(updateAvailableC, _targetFile);
+}
+
+bool GenericUpdater::updateSucceeded() const
+{
+    MirallConfigFile cfg;
+    QSettings settings(cfg.configFile(), QSettings::IniFormat);
+    QByteArray lastVersion = settings.value(lastVersionC).toString().toLatin1();
+    int major = 0, minor = 0, micro = 0, oldTimestamp = 0;
+    sscanf(lastVersion, "%d.%d.%d.%d", &major, &minor, &micro, &oldTimestamp);
+    int oldVersionInt = major << 16 | minor << 8 | micro;
+    // at least the version needs to be greater. if it's equal, the timestamp needs to be bigger
+    if (MIRALL_VERSION_INT > oldVersionInt) {
+        return true;
+    } else if (MIRALL_VERSION_INT == oldVersionInt) {
+        return MIRALL_VERSION_TIMESTAMP > oldTimestamp;
+    }
+    return false;
 }
 
 QString GenericUpdater::clientVersion() const
 {
     return QString::fromLatin1("%1.%2.%3")
-            .arg(MIRALL_VERSION_MAJOR).arg(MIRALL_VERSION_MINOR).arg(MIRALL_VERSION_MICRO);
+            .arg(MIRALL_VERSION_MAJOR).arg(MIRALL_VERSION_MINOR).arg(MIRALL_VERSION_MICRO).arg(MIRALL_VERSION_TIMESTAMP);
 }
 
 }

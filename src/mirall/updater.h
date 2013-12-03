@@ -20,10 +20,16 @@ namespace Mirall {
 
 class Updater {
 public:
+    enum UpdateState { NoUpdate = 0, UpdateAvailable, UpdateFailed };
+
     static Updater *instance();
 
-    virtual void checkForUpdates() = 0;
-    virtual void backgroundCheckForUpdates() = 0;
+    virtual void checkForUpdate() = 0;
+    virtual void backgroundCheckForUpdate() = 0;
+
+    virtual UpdateState updateState() const = 0;
+    virtual void performUpdate() {}
+
 private:
     static Updater *create();
     static Updater *_instance;

@@ -25,8 +25,8 @@ public:
     SparkleUpdater(const QString& appCastUrl, QObject *parent = 0);
     ~SparkleUpdater();
 
-    void checkForUpdates();
-    void backgroundCheckForUpdates();
+    void checkForUpdate();
+    void backgroundCheckForUpdate();
 private:
     class Private;
     Private *d;

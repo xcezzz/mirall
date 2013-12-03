@@ -45,11 +45,6 @@ public:
     QByteArray caCerts();
     void setCaCerts( const QByteArray& );
 
-    bool passwordStorageAllowed(const QString &connection = QString::null );
-
-    QString ownCloudVersion() const;
-    void setOwnCloudVersion( const QString& );
-
     // max count of lines in the log window
     int  maxLogLines() const;
     void setMaxLogLines(int);
@@ -105,9 +100,6 @@ public:
     QString seenVersion() const;
     void setSeenVersion(const QString &version);
 
-    QString lastVersion() const;
-    void setLastVersion(const QString &version);
-
 protected:
     void storeData(const QString& group, const QString& key, const QVariant& value);
     QVariant retrieveData(const QString& group, const QString& key) const;
@@ -123,7 +115,6 @@ private:
     typedef QSharedPointer< AbstractCredentials > SharedCreds;
 
     static bool    _askedUser;
-    static QString _oCVersion;
     static QString _confDir;
 };
 

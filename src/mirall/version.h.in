@@ -27,6 +27,8 @@
 #define MIRALL_VERSION_MICRO  @VERSION_PATCH@
 #define MIRALL_VERSION        @VERSION@
 
+#define MIRALL_VERSION_TIMESTAMP @VERSION_TIMESTAMP@
+
 #define MIRALL_VERSION_INT MIRALL_VERSION_INT_(MIRALL_VERSION_MAJOR, \
                                            MIRALL_VERSION_MINOR, \
                                            MIRALL_VERSION_MICRO)
