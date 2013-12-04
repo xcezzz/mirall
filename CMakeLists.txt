@@ -4,7 +4,6 @@ project(mirall)
 set(PACKAGE "mirall")
 set( CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/modules )
 
-include(Macros)
 include(Warnings)
 
 set(OEM_THEME_DIR "" CACHE STRING "Define directory containing a custom theme")

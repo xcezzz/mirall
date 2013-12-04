@@ -30,7 +30,7 @@
 
 namespace Mirall {
 
-static const char updateAvailableC[] = "Updater/UpdateAvailable";
+static const char updateAvailableC[] = "Updater/updateAvailable";
 static const char lastVersionC[] = "Updater/lastVersion";
 static const char ranUpdateC[] = "Updater/ranUpdate";
 
@@ -47,7 +47,8 @@ Updater::UpdateState GenericUpdater::updateState() const
     MirallConfigFile cfg;
     QSettings settings(cfg.configFile(), QSettings::IniFormat);
     QString updateFile = settings.value(updateAvailableC).toString();
-    if (!updateFile.isEmpty() && QFile(updateFile).exists()) {
+    bool exists = QFile(updateFile).exists();
+    if (!updateFile.isEmpty() && exists) {
         // we have an update, did we succeed running it?
         bool ranUpdate = settings.value(ranUpdateC, false).toBool();
         if (ranUpdate) {
@@ -120,8 +121,6 @@ void GenericUpdater::checkForUpdate()
 {
     Theme *theme = Theme::instance();
     QUrl url(_updateUrl);
-    QString ver = QString::fromLatin1("%1.%2.%3").arg(MIRALL_VERSION_MAJOR).arg(MIRALL_VERSION_MINOR).arg(MIRALL_VERSION_MICRO);
-
     QString platform = QLatin1String("stranger");
 #ifdef Q_OS_LINUX
     platform = QLatin1String("linux");
@@ -138,7 +137,7 @@ void GenericUpdater::checkForUpdate()
     if( !sysInfo.isEmpty() ) {
         url.addQueryItem(QLatin1String("client"), sysInfo );
     }
-    url.addQueryItem( QLatin1String("version"), ver );
+    url.addQueryItem( QLatin1String("version"), clientVersion() );
     url.addQueryItem( QLatin1String("platform"), platform );
     url.addQueryItem( QLatin1String("oem"), theme->appName() );
 
@@ -306,9 +305,9 @@ void GenericUpdater::slotDownloadFinished()
     qDebug() << "Downloaded" << url.toString() << "to" << _targetFile;
     MirallConfigFile cfg;
     QSettings settings(cfg.configFile(), QSettings::IniFormat);
-
     settings.setValue(lastVersionC, clientVersion());
     settings.setValue(updateAvailableC, _targetFile);
+
 }
 
 bool GenericUpdater::updateSucceeded() const
@@ -316,22 +315,16 @@ bool GenericUpdater::updateSucceeded() const
     MirallConfigFile cfg;
     QSettings settings(cfg.configFile(), QSettings::IniFormat);
     QByteArray lastVersion = settings.value(lastVersionC).toString().toLatin1();
-    int major = 0, minor = 0, micro = 0, oldTimestamp = 0;
-    sscanf(lastVersion, "%d.%d.%d.%d", &major, &minor, &micro, &oldTimestamp);
-    int oldVersionInt = major << 16 | minor << 8 | micro;
-    // at least the version needs to be greater. if it's equal, the timestamp needs to be bigger
-    if (MIRALL_VERSION_INT > oldVersionInt) {
-        return true;
-    } else if (MIRALL_VERSION_INT == oldVersionInt) {
-        return MIRALL_VERSION_TIMESTAMP > oldTimestamp;
-    }
-    return false;
+    int major = 0, minor = 0, micro = 0, build = 0;
+    sscanf(lastVersion, "%d.%d.%d.%d", &major, &minor, &micro, &build);
+    int oldVersionInt = major << 24 | minor << 16 | micro << 8 | build;
+    int versionInt = MIRALL_VERSION_INT;
+    return versionInt > oldVersionInt;
 }
 
 QString GenericUpdater::clientVersion() const
 {
-    return QString::fromLatin1("%1.%2.%3")
-            .arg(MIRALL_VERSION_MAJOR).arg(MIRALL_VERSION_MINOR).arg(MIRALL_VERSION_MICRO).arg(MIRALL_VERSION_TIMESTAMP);
+    return QString::fromLatin1(MIRALL_STRINGIFY(MIRALL_VERSION_FULL));
 }
 
 }
