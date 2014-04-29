@@ -142,7 +142,7 @@ QString Utility::platform()
     return QLatin1String("Linux");
 #elif defined(__DragonFly__) // Q_OS_FREEBSD also defined
     return QLatin1String("DragonFlyBSD");
-#elif defined(Q_OS_FREEBSD)
+#elif defined(Q_OS_FREEBSD) || defined(__FreeBSD_kernel__)
     return QLatin1String("FreeBSD");
 #elif defined(Q_OS_NETBSD)
     return QLatin1String("NetBSD");
@@ -195,7 +195,7 @@ void Utility::setLaunchOnStartup(const QString &appName, const QString& guiName,
 
 qint64 Utility::freeDiskSpace(const QString &path, bool *ok)
 {
-#if defined(Q_OS_MAC) || defined(Q_OS_FREEBSD)
+#if defined(Q_OS_MAC) || defined(Q_OS_FREEBSD) || defined(__FreeBSD_kernel__)
     struct statvfs stat;
     statvfs(path.toUtf8().data(), &stat);
     return (qint64) stat.f_bavail * stat.f_frsize;
